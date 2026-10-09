@@ -1,5 +1,5 @@
 import { authSettings, SESSION_COOKIE } from '../../../email-auth';
-import { makeSession, normalizeEmail, verifyPassword } from '../../../email-session';
+import { makeSession, normalizeEmail, passwordHash, verifyPassword } from '../../../email-session';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +19,8 @@ export async function POST(request: Request) {
   if (!secret || Object.keys(accounts).length === 0) return Response.json({ error: '登录尚未配置完成，请稍后再试。' }, { status: 503 });
   const account = accounts[email];
   if (!account || !(await verifyPassword(body.password, account))) {
-    return Response.json({ error: '邮箱或密码不正确。', diagnostic: { accountFound: Boolean(account), saltLength: account?.salt?.length ?? 0, hashLength: account?.hash?.length ?? 0 } }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    const tag = async (value: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))].slice(0, 6).map(x => x.toString(16).padStart(2, '0')).join('');
+    return Response.json({ error: '邮箱或密码不正确。', diagnostic: { accountFound: Boolean(account), saltTag: account ? await tag(account.salt) : null, expectedTag: account ? await tag(account.hash) : null, actualTag: account ? await tag(await passwordHash(body.password, account.salt)) : null } }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   }
   const session = await makeSession(email, secret);
   const response = Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });

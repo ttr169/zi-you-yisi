@@ -6,6 +6,9 @@ input.close();
 const { baseUrl, bypassToken, email, password, accounts } = JSON.parse(line);
 const { parseAccounts, verifyPassword } = await import('../app/email-session.ts');
 const localPasswordValid = await verifyPassword(password, parseAccounts(accounts)[email]);
+const { createHash } = await import('node:crypto');
+const tag = value => createHash('sha256').update(value).digest('hex').slice(0, 12);
+const localAccount = parseAccounts(accounts)[email];
 const base = new URL(baseUrl);
 const headers = { 'OAI-Sites-Authorization': `Bearer ${bypassToken}` };
 const noLogin = await fetch(new URL('/api/progress', base), { headers });
@@ -13,5 +16,5 @@ const wrongEmail = await fetch(new URL('/api/auth/login', base), { method: 'POST
 const login = await fetch(new URL('/api/auth/login', base), { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
 const cookie = login.headers.get('set-cookie')?.split(';')[0];
 const afterLogin = cookie ? await fetch(new URL('/api/progress', base), { headers: { ...headers, Cookie: cookie } }) : null;
-console.log(JSON.stringify({ localPasswordValid, anonymousProgress: noLogin.status, wrongEmail: wrongEmail.status, correctLogin: login.status, loginBody: await login.text(), cookieName: cookie?.split('=')[0], authenticatedProgress: afterLogin?.status ?? null }));
+console.log(JSON.stringify({ localPasswordValid, localSaltTag: tag(localAccount.salt), localExpectedTag: tag(localAccount.hash), anonymousProgress: noLogin.status, wrongEmail: wrongEmail.status, correctLogin: login.status, loginBody: await login.text(), cookieName: cookie?.split('=')[0], authenticatedProgress: afterLogin?.status ?? null }));
 if (noLogin.status !== 401 || wrongEmail.status !== 401 || login.status !== 200 || !cookie || afterLogin?.status !== 200) process.exitCode = 1;
