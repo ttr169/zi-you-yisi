@@ -1,0 +1,12 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {wordState,mergeEvents,wasRecentlyHelped,DAY} from '../app/progress.mjs';
+const event=(id,at,kind='answer',payload={})=>({id,wordId:'w',at,kind,payload:{correct:true,assisted:false,questionId:id,questionKind:id,...payload}});
+test('same-day success is not durable mastery',()=>{const s=wordState([event('meaning',100),event('transfer',200),event('boundary',300)],'w');assert.equal(s.meaning,'初步理解');});
+test('distinct contexts plus delayed retrieval can become stable',()=>{const s=wordState([event('meaning',100),event('transfer',200),event('boundary',DAY+300)],'w');assert.equal(s.meaning,'较稳固');});
+test('assisted success is never independent evidence',()=>{assert.equal(wordState([event('meaning',100,'answer',{assisted:true})],'w').contexts,0);});
+test('new lapse overrides older high mastery across devices without losing events',()=>{const old=[event('meaning',100),event('transfer',200),event('boundary',DAY+300)];const newer=event('failure',2*DAY,'answer',{correct:false});const merged=mergeEvents([newer],old,old);assert.equal(merged.length,4);assert.equal(wordState(merged,'w').meaning,'需要再理解');});
+test('parent rejection resets previous semantic evidence',()=>{const all=[event('meaning',100),event('transfer',200),event('boundary',DAY+300),event('parent',2*DAY,'parentMeaning',{ok:false}),event('new',2*DAY+1)];assert.equal(wordState(all,'w').contexts,1);assert.notEqual(wordState(all,'w').meaning,'较稳固');});
+test('self-check does not count as confirmed reading',()=>{assert.equal(wordState([event('r',100,'reading',{ok:true})],'w').reading,'自行核对过');assert.equal(wordState([event('p',100,'parentRead',{ok:true})],'w').reading,'家长已确认');});
+test('review becomes due and recent teaching is assistance',()=>{const e=event('a',100);assert.equal(wordState([e],'w',DAY+101).due,true);assert.equal(wordState([e],'w',1000).due,false);assert.equal(wasRecentlyHelped([event('l',100,'learn')],'w',1000),true);assert.equal(wasRecentlyHelped([event('l',100,'learn')],'w',700000),false);});
+test('repeating one question does not provide multiple contexts',()=>{const a=event('a',100,'answer',{questionId:'same',questionKind:'meaning'}),b=event('b',DAY+100,'answer',{questionId:'same',questionKind:'meaning'});assert.equal(wordState([a,b],'w').contexts,1);assert.notEqual(wordState([a,b],'w').meaning,'较稳固');});
