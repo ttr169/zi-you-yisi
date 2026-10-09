@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   if (!secret || Object.keys(accounts).length === 0) return Response.json({ error: '登录尚未配置完成，请稍后再试。' }, { status: 503 });
   const account = accounts[email];
   if (!account || !(await verifyPassword(body.password, account))) {
-    return Response.json({ error: '邮箱或密码不正确。' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ error: '邮箱或密码不正确。', diagnostic: { accountFound: Boolean(account), saltLength: account?.salt?.length ?? 0, hashLength: account?.hash?.length ?? 0 } }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   }
   const session = await makeSession(email, secret);
   const response = Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
