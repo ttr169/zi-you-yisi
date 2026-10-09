@@ -11,7 +11,8 @@ export function wordState(events,id,now=Date.now()) {
   const kinds=new Set(good.map(e=>e.payload.questionKind));
   const contexts=new Set(good.map(e=>e.payload.questionId));
   const spaced=good.length>1 && good.at(-1).at-good[0].at>=DAY;
-  let meaning=spaced&&kinds.size>=3?'较稳固':contexts.size>=2?'初步理解':good.length?'有一点证据':rows.some(e=>e.kind==='learn')?'已学习':'待检测';
+  const hasOral=rows.some(e=>e.kind==='parentMeaning'&&e.payload.ok&&e.at>(lastFailure?.at??0));
+  let meaning=spaced&&kinds.size>=3&&(!id.startsWith('custom-')||hasOral)?'较稳固':contexts.size>=2?'初步理解':good.length?'有一点证据':rows.some(e=>e.kind==='learn')?'已学习':'待检测';
   const parentMeaning=rows.filter(e=>e.kind==='parentMeaning').at(-1);
   if(parentMeaning?.payload.ok && parentMeaning.at>(lastFailure?.at??0) && meaning!=='较稳固') meaning='口头表达已确认';
   if(parentMeaning&&!parentMeaning.payload.ok && parentMeaning.at>(answers.at(-1)?.at??0)) meaning='需要再理解';

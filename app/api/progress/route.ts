@@ -3,7 +3,7 @@ import { getDb } from '../../../db';
 import { learningEvents } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 export const dynamic = 'force-dynamic';
-const kinds = new Set(['answer','reading','learn','pin','parentRead','parentMeaning','setting']);
+const kinds = new Set(['answer','reading','learn','pin','parentRead','parentMeaning','setting','customWord']);
 const reply = (data: unknown, status=200) => Response.json(data, {status, headers: {'Cache-Control':'no-store'}});
 export async function GET() {
   const user=await getChatGPTUser();
@@ -26,6 +26,7 @@ export async function POST(request: Request) {
   const events: {id:string;wordId:string;kind:string;at:number;payload:Record<string,unknown>}[]=body.events;
   for(const e of events) {
     if(!e || typeof e.id!=='string'|| !/^[a-zA-Z0-9-]{1,80}$/.test(e.id)||typeof e.wordId!=='string'||e.wordId.length>80||!kinds.has(e.kind)||!Number.isSafeInteger(e.at)||e.at<0||e.at>Date.now()+86400000||!e.payload||typeof e.payload!=='object'||Array.isArray(e.payload)||JSON.stringify(e.payload).length>4000) return reply({error:'记录字段不正确'},400);
+    if(e.kind==='customWord' && (!['term','pinyin','meaning','example'].every(k=>typeof e.payload[k]==='string' && (e.payload[k] as string).trim().length>0 && (e.payload[k] as string).length<=200)|| (e.payload.term as string).length>20)) return reply({error:'补充字词内容不正确'},400);
   }
   try {
     if(events.length) await getDb().insert(learningEvents).values(events.map(e=>({userId:user.userId,id:e.id,wordId:e.wordId,kind:e.kind,at:e.at,payload:JSON.stringify(e.payload)}))).onConflictDoNothing();
