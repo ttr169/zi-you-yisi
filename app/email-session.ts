@@ -72,9 +72,11 @@ export async function readSession(token: string | undefined, secret: string, acc
 export async function passwordHash(password: string, salt: string): Promise<string> {
   const saltBytes = fromBase64Url(salt);
   if (!saltBytes || saltBytes.length < 16) throw new Error('Invalid password salt');
-  const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes as BufferSource, iterations: 210000 }, key, 256);
-  return toBase64Url(new Uint8Array(bits));
+  const passwordBytes = encoder.encode(password);
+  const input = new Uint8Array(saltBytes.length + passwordBytes.length);
+  input.set(saltBytes);
+  input.set(passwordBytes, saltBytes.length);
+  return toBase64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', input)));
 }
 
 export async function verifyPassword(password: string, account: AuthAccount): Promise<boolean> {
