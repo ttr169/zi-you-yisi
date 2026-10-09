@@ -1,4 +1,4 @@
-import { getChatGPTUser } from '../../chatgpt-auth';
+import { getEmailUser } from '../../email-auth';
 import { getDb } from '../../../db';
 import { learningEvents } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 const kinds = new Set(['answer','reading','learn','pin','parentRead','parentMeaning','setting','customWord']);
 const reply = (data: unknown, status=200) => Response.json(data, {status, headers: {'Cache-Control':'no-store'}});
 export async function GET() {
-  const user=await getChatGPTUser();
+  const user=await getEmailUser();
   if(!user) return reply({error:'请先登录，才能同步学习记录。'},401);
   try {
     const rows=await getDb().select().from(learningEvents).where(eq(learningEvents.userId,user.userId));
@@ -14,7 +14,7 @@ export async function GET() {
   } catch { return reply({error:'云端暂时无法连接，记录仍保留在本机。'},503); }
 }
 export async function POST(request: Request) {
-  const user=await getChatGPTUser();
+  const user=await getEmailUser();
   if(!user) return reply({error:'请先登录，才能同步学习记录。'},401);
   const origin=request.headers.get('origin');
   if(origin && origin!==new URL(request.url).origin) return reply({error:'请求来源不一致'},403);
